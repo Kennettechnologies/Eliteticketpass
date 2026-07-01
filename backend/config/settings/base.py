@@ -13,6 +13,11 @@ environ.Env.read_env(BASE_DIR.parent / ".env")
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
+if "RENDER_EXTERNAL_HOSTNAME" in env.ENVIRON:
+    ALLOWED_HOSTS.append(env("RENDER_EXTERNAL_HOSTNAME"))
+# Also allow wildcard render domain as fallback
+if ".onrender.com" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(".onrender.com")
 
 DJANGO_APPS = [
     "django.contrib.admin",
