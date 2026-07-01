@@ -60,12 +60,10 @@ psycopg2-binary==2.9.12
 pyasn1==0.6.3
 pyasn1_modules==0.4.2
 PyJWT==2.12.1
-pyparted==3.13.0
 PySocks==1.7.1
 python-crontab==3.3.0
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.2
-pyudev==0.24.4
 PyYAML==6.0.3
 qrcode==8.2
 RapidFuzz==3.14.3
