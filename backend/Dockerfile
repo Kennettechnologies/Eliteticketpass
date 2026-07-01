@@ -15,6 +15,6 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 
 COPY . .
 
-RUN python manage.py collectstatic --noinput || true
+RUN DJANGO_SECRET_KEY=dummy python manage.py collectstatic --noinput || true
 
 EXPOSE 8000
