@@ -18,3 +18,6 @@ COPY . .
 RUN DJANGO_SECRET_KEY=dummy python manage.py collectstatic --noinput || true
 
 EXPOSE 8000
+
+# Run migrations and start the server
+CMD python manage.py migrate && uvicorn config.asgi:application --host 0.0.0.0 --port ${PORT:-8000}
