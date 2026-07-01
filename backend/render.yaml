@@ -1,0 +1,94 @@
+databases:
+  - name: ticketbase-db
+    databaseName: ticketbase
+    user: ticketbase_user
+    plan: free
+
+services:
+  - type: redis
+    name: ticketbase-redis
+    plan: free
+    ipAllowList: []
+    maxmemoryPolicy: noeviction
+
+  - type: web
+    name: ticketbase-api
+    plan: free
+    runtime: python
+    buildCommand: "./build.sh"
+    # We use Uvicorn for ASGI to support Django Channels (WebSockets)
+    startCommand: "uvicorn config.asgi:application --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ticketbase-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: ticketbase-redis
+          property: connectionString
+      - key: DJANGO_SETTINGS_MODULE
+        value: "config.settings.production"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: "ticketbase-api.onrender.com"
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://your-vercel-frontend-url.vercel.app"
+
+  # Note: Background workers are NOT available on Render's Free plan.
+  # The starter plan is required for Celery.
+  - type: worker
+    name: ticketbase-celery
+    plan: starter
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "celery -A config worker --loglevel=info"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ticketbase-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: ticketbase-redis
+          property: connectionString
+      - key: DJANGO_SETTINGS_MODULE
+        value: "config.settings.production"
+      - key: DJANGO_SECRET_KEY
+        fromService:
+          type: web
+          name: ticketbase-api
+          envVarKey: DJANGO_SECRET_KEY
+      - key: DEBUG
+        value: "False"
+
+  - type: worker
+    name: ticketbase-celery-beat
+    plan: starter
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "celery -A config beat --loglevel=info"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ticketbase-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: ticketbase-redis
+          property: connectionString
+      - key: DJANGO_SETTINGS_MODULE
+        value: "config.settings.production"
+      - key: DJANGO_SECRET_KEY
+        fromService:
+          type: web
+          name: ticketbase-api
+          envVarKey: DJANGO_SECRET_KEY
+      - key: DEBUG
+        value: "False"

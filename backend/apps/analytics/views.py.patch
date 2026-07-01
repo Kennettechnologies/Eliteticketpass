@@ -1,0 +1,229 @@
+--- backend/apps/analytics/views.py
++++ backend/apps/analytics/views.py
+@@ -269,7 +269,57 @@
+     start, end = _date_range(request, default_days=90)
+     group_by   = request.query_params.get("group_by", "day")
+     trunc      = _trunc_fn(group_by)
++    event_type = request.query_params.get("event_type")
++    category   = request.query_params.get("category")
++    city       = request.query_params.get("city")
+ 
++    if event_type or category or city:
++        from apps.orders.models import Order
++        qs = Order.objects.filter(status="CONFIRMED", confirmed_at__date__range=(start, end))
++        if event_type and event_type.lower() != 'all':
++            qs = qs.filter(event__event_type=event_type.upper())
++        if category and category.lower() != 'all':
++            qs = qs.filter(event__category__name__icontains=category)
++        if city:
++            qs = qs.filter(user__city__icontains=city)
++
++        series = (qs.values(period=trunc("confirmed_at"))
++                    .annotate(gmv=Coalesce(Sum("total"), Decimal("0")),
++                              fees=Coalesce(Sum("platform_fee"), Decimal("0")),
++                              orders=Count("id")).order_by("period"))
++
++        qs_ref = Order.objects.filter(status="REFUNDED", confirmed_at__date__range=(start, end))
++        if event_type and event_type.lower() != 'all': qs_ref = qs_ref.filter(event__event_type=event_type.upper())
++        if category and category.lower() != 'all': qs_ref = qs_ref.filter(event__category__name__icontains=category)
++        if city: qs_ref = qs_ref.filter(user__city__icontains=city)
++
++        ref_series = qs_ref.values(period=trunc("confirmed_at")).annotate(refunds=Coalesce(Sum("total"), Decimal("0")))
++        ref_map = {str(r["period"])[:10] if group_by=='day' else str(r["period"]): r["refunds"] for r in ref_series}
++
++        combined_series = []
++        for s in series:
++            p = str(s["period"])[:10] if group_by=='day' else str(s["period"])
++            combined_series.append({
++                "period": p,
++                "gmv": _fmt(s["gmv"]),
++                "fees": _fmt(s["fees"]),
++                "refunds": _fmt(ref_map.get(p, Decimal("0"))),
++                "orders": s["orders"],
++                "new_users": 0
++            })
++
++        totals_qs = qs.aggregate(gmv=Coalesce(Sum("total"), Decimal("0")), fees=Coalesce(Sum("platform_fee"), Decimal("0")), orders=Count("id"))
++        refunds_tot = qs_ref.aggregate(r=Coalesce(Sum("total"), Decimal("0")))["r"]
++
++        return Response(api_response(data={
++            "period": {"start": str(start), "end": str(end), "group_by": group_by},
++            "totals": {"gmv": _fmt(totals_qs["gmv"]), "fees": _fmt(totals_qs["fees"]), "refunds": _fmt(refunds_tot), "orders": str(totals_qs["orders"]), "payouts": "0"},
++            "series": combined_series
++        }).data)
++
+     series = (
+         PlatformAnalyticsDaily.objects
+         .filter(date__range=(start, end))
+@@ -319,9 +369,17 @@
+     limit      = int(request.query_params.get("limit", 10))
++    event_type = request.query_params.get("event_type")
++    category   = request.query_params.get("category")
++    city       = request.query_params.get("city")
+ 
+-    orgs = (
+-        Order.objects
+-        .filter(status="CONFIRMED", confirmed_at__date__range=(start, end))
+-        .values("event__organizer_id", org_name=F("event__organizer__name"))
++    qs = Order.objects.filter(status="CONFIRMED", confirmed_at__date__range=(start, end))
++    if event_type and event_type.lower() != 'all': qs = qs.filter(event__event_type=event_type.upper())
++    if category and category.lower() != 'all': qs = qs.filter(event__category__name__icontains=category)
++    if city: qs = qs.filter(user__city__icontains=city)
++
++    orgs = (qs.values("event__organizer_id", org_name=F("event__organizer__name"))
+         .annotate(
+             gmv=Coalesce(Sum("total"), Decimal("0")),
+             fees=Coalesce(Sum("platform_fee"), Decimal("0")),
+@@ -361,11 +419,16 @@
+     from apps.orders.models import Order
+ 
+     start, end = _date_range(request, default_days=90)
++    event_type = request.query_params.get("event_type")
++    city       = request.query_params.get("city")
++
++    qs = Order.objects.filter(status="CONFIRMED", confirmed_at__date__range=(start, end))
++    if event_type and event_type.lower() != 'all': qs = qs.filter(event__event_type=event_type.upper())
++    if city: qs = qs.filter(user__city__icontains=city)
+ 
+     cats = (
+-        Order.objects
+-        .filter(status="CONFIRMED", confirmed_at__date__range=(start, end))
+-        .values(category=F("event__category"))
++        qs.exclude(event__category__isnull=True)
++        .values(category=F("event__category__name"))
+         .annotate(
+             gmv=Coalesce(Sum("total"), Decimal("0")),
+             orders=Count("id"),
+@@ -387,11 +450,15 @@
+     from apps.orders.models import Order
+ 
+     start, end = _date_range(request, default_days=90)
++    event_type = request.query_params.get("event_type")
++    category   = request.query_params.get("category")
++
++    qs = Order.objects.filter(status="CONFIRMED", confirmed_at__date__range=(start, end))
++    if event_type and event_type.lower() != 'all': qs = qs.filter(event__event_type=event_type.upper())
++    if category and category.lower() != 'all': qs = qs.filter(event__category__name__icontains=category)
+ 
+     by_city = (
+-        Order.objects
+-        .filter(status="CONFIRMED", confirmed_at__date__range=(start, end))
++        qs
+         .exclude(user__city="")
+         .values(city=F("user__city"))
+         .annotate(buyers=Count("user_id", distinct=True), orders=Count("id"))
+@@ -398,8 +465,7 @@
+     )
+ 
+     total_buyers = (
+-        Order.objects
+-        .filter(status="CONFIRMED", confirmed_at__date__range=(start, end))
++        qs
+         .values("user_id").distinct().count()
+     )
+ 
+@@ -440,3 +506,105 @@
+         for s in series
+     ]).data)
++
++@api_view(["GET"])
++@permission_classes([IsAdminOrSuperAdmin])
++def platform_funnel(request):
++    from apps.orders.models import Order
++    from apps.tickets.models import Ticket
++    
++    start, end = _date_range(request, default_days=90)
++    event_type = request.query_params.get("event_type")
++    category   = request.query_params.get("category")
++    
++    views_qs = EventAnalyticsDaily.objects.filter(date__range=(start, end))
++    if event_type and event_type.lower() != 'all': views_qs = views_qs.filter(event__event_type=event_type.upper())
++    if category and category.lower() != 'all': views_qs = views_qs.filter(event__category__name__icontains=category)
++    total_views = views_qs.aggregate(s=Sum("views"))["s"] or 0
++
++    t_qs = Ticket.objects.filter(created_at__date__range=(start, end))
++    if event_type and event_type.lower() != 'all': t_qs = t_qs.filter(order__event__event_type=event_type.upper())
++    if category and category.lower() != 'all': t_qs = t_qs.filter(order__event__category__name__icontains=category)
++    checkouts_started = t_qs.count() # A ticket represents a checked out item
++
++    o_qs = Order.objects.filter(created_at__date__range=(start, end))
++    if event_type and event_type.lower() != 'all': o_qs = o_qs.filter(event__event_type=event_type.upper())
++    if category and category.lower() != 'all': o_qs = o_qs.filter(event__category__name__icontains=category)
++    
++    confirmed = o_qs.filter(status="CONFIRMED").count()
++    refunded = o_qs.filter(status="REFUNDED").count()
++    
++    return Response(api_response(data={
++        "views": total_views,
++        "checkouts": checkouts_started,
++        "confirmed": confirmed,
++        "refunded": refunded
++    }).data)
++
++@api_view(["GET"])
++@permission_classes([IsAdminOrSuperAdmin])
++def platform_live_metrics(request):
++    from apps.orders.models import Order
++    from apps.admin_panel.models import Dispute
++    
++    today = timezone.now().date()
++    orders = Order.objects.filter(confirmed_at__date=today, status="CONFIRMED")
++    totals = orders.aggregate(gmv=Coalesce(Sum("total"), Decimal("0")), count=Count("id"))
++    
++    disputes_pending = Dispute.objects.filter(status="OPEN").count()
++    disputes_resolved = Dispute.objects.filter(status="RESOLVED").count()
++    
++    return Response(api_response(data={
++        "today_gmv": _fmt(totals["gmv"]),
++        "today_orders": totals["count"],
++        "disputes_pending": disputes_pending,
++        "disputes_resolved": disputes_resolved
++    }).data)
++
++@api_view(["GET"])
++@permission_classes([IsAdminOrSuperAdmin])
++def platform_ticket_tiers(request):
++    from apps.tickets.models import Ticket
++    
++    start, end = _date_range(request, default_days=90)
++    event_type = request.query_params.get("event_type")
++    category   = request.query_params.get("category")
++    
++    qs = Ticket.objects.filter(order__status="CONFIRMED", order__confirmed_at__date__range=(start, end))
++    if event_type and event_type.lower() != 'all': qs = qs.filter(order__event__event_type=event_type.upper())
++    if category and category.lower() != 'all': qs = qs.filter(order__event__category__name__icontains=category)
++    
++    # We group by tier name keywords or price logic
++    # Since it's SQL we can group by tier__name but it might be fragmented.
++    # Better: Fetch them and group in python
++    tiers = qs.values("tier__name", "tier__price").annotate(sold=Count("id"))
++    
++    results = {
++        "VIP": {"sales": 0, "revenue": Decimal("0")},
++        "Early Bird": {"sales": 0, "revenue": Decimal("0")},
++        "Regular": {"sales": 0, "revenue": Decimal("0")},
++        "Other": {"sales": 0, "revenue": Decimal("0")}
++    }
++    
++    for t in tiers:
++        name = (t["tier__name"] or "").lower()
++        sold = t["sold"]
++        rev = Decimal(str(t["tier__price"] or 0)) * sold
++        
++        if "vip" in name or "premium" in name:
++            key = "VIP"
++        elif "early" in name or "bird" in name:
++            key = "Early Bird"
++        elif "regular" in name or "general" in name or "standard" in name:
++            key = "Regular"
++        else:
++            key = "Other"
++            
++        results[key]["sales"] += sold
++        results[key]["revenue"] += rev
++        
++    return Response(api_response(data=[
++        {"name": k, "sales": v["sales"], "revenue": _fmt(v["revenue"])}
++        for k, v in results.items()
++    ]).data)
++
