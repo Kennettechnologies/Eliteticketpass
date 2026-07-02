@@ -9,6 +9,7 @@ import { useAuthStore } from "@/store/auth";
 import { cn, getInitials } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/ui/notification-bell";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const navLinks = [
   { href: "/events", label: "Discover" },
@@ -58,6 +59,7 @@ export function Navbar() {
 
           {/* Actions */}
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             {isAuthenticated && user && <NotificationBell />}
             {isAuthenticated && user ? (
               <div className="relative">

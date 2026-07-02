@@ -10,23 +10,23 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "#0a0a0a",
-        surface: "#111111",
-        "surface-2": "#1a1a1a",
-        border: "#262626",
+        background: "var(--background)",
+        surface: "var(--surface)",
+        "surface-2": "var(--surface-2)",
+        border: "var(--border)",
         primary: {
-          DEFAULT: "#f59e0b",
+          DEFAULT: "var(--primary)",
           foreground: "#0a0a0a",
         },
         secondary: {
-          DEFAULT: "#3b82f6",
+          DEFAULT: "var(--secondary)",
           foreground: "#ffffff",
         },
         success: "#10b981",
         error: "#ef4444",
         warning: "#f59e0b",
-        muted: "#9ca3af",
-        foreground: "#f9fafb",
+        muted: "var(--muted)",
+        foreground: "var(--foreground)",
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],

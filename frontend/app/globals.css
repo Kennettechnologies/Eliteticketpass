@@ -5,6 +5,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap');
 
 :root {
+  --background: #f9fafb;
+  --surface: #ffffff;
+  --surface-2: #f3f4f6;
+  --border: #e5e7eb;
+  --primary: #f59e0b;
+  --secondary: #3b82f6;
+  --foreground: #111111;
+  --muted: #6b7280;
+}
+
+.dark {
   --background: #0a0a0a;
   --surface: #111111;
   --surface-2: #1a1a1a;

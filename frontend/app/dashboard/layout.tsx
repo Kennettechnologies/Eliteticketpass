@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const navItems = [
   { href: "/dashboard",                label: "Overview",        icon: LayoutDashboard },
@@ -77,6 +78,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
         )}
+        <div className="flex items-center gap-2 mb-2 px-3">
+           <ThemeToggle />
+           {(!collapsed || mobile) && <span className="text-sm font-medium">Theme</span>}
+        </div>
         <button onClick={handleLogout}
           className={cn("flex items-center gap-2 w-full px-3 py-2 rounded-sm text-sm text-error hover:bg-error/10 transition-colors", collapsed && !mobile && "justify-center")}>
           <LogOut className="w-4 h-4 shrink-0" />
@@ -116,7 +121,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Menu className="w-5 h-5" />
           </button>
           <span className="font-display font-bold gold-text">Dashboard</span>
-          <div />
+          <div className="p-1"><ThemeToggle /></div>
         </div>
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
