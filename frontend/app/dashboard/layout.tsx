@@ -78,10 +78,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
         )}
-        <div className="flex items-center gap-2 mb-2 px-3">
-           <ThemeToggle />
-           {(!collapsed || mobile) && <span className="text-sm font-medium">Theme</span>}
-        </div>
         <button onClick={handleLogout}
           className={cn("flex items-center gap-2 w-full px-3 py-2 rounded-sm text-sm text-error hover:bg-error/10 transition-colors", collapsed && !mobile && "justify-center")}>
           <LogOut className="w-4 h-4 shrink-0" />
@@ -114,7 +110,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </AnimatePresence>
 
       {/* Main */}
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
+        {/* Desktop floating actions */}
+        <div className="absolute top-4 right-6 z-50 hidden md:block">
+          <ThemeToggle />
+        </div>
+
         {/* Mobile header */}
         <div className="md:hidden flex items-center justify-between h-14 px-4 border-b border-border bg-surface">
           <button onClick={() => setMobileOpen(true)} className="p-1 text-muted">
